@@ -5,18 +5,7 @@ import gym
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-
-try:
-    from stable_baselines3 import SAC
-except ModuleNotFoundError as exc:
-    raise ModuleNotFoundError(
-        "Missing dependency. Install with:\n"
-        "  pip install stable-baselines3\n"
-        "For Colab, also pin versions:\n"
-        "  pip install numpy==1.26.4 gym==0.19.0 matplotlib==3.7.1\n"
-        "  pip install torch --index-url https://download.pytorch.org/whl/cu121\n"
-        "  pip install stable-baselines3"
-    ) from exc
+from stable_baselines3 import SAC
 
 
 def _setup_paths():

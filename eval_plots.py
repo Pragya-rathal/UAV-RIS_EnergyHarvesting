@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 
@@ -5,10 +6,11 @@ try:
     import gymnasium as gym
 except ImportError:  # pragma: no cover - fallback for gym-only installs
     import gym
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from stable_baselines3 import SAC
+from stable_baselines3 import SAC, PPO, TD3
 
 
 def _setup_paths():
@@ -49,33 +51,53 @@ def compute_sinr_sumrate(env, tau, power_1, theta_r, l_u, l_ap, ut_0):
     return sinr_db, sum_rate
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Evaluate trained policy and plot SINR/Sum-Rate.")
+    parser.add_argument("--model-path", type=str, required=True)
+    parser.add_argument("--algo", type=str, default="sac", choices=["sac", "ppo", "td3"])
+    parser.add_argument("--episodes-per-pt", type=int, default=5)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--output-dir", type=str, default="eval_plots")
+    return parser.parse_args()
+
+
+def load_model(algo, model_path, device):
+    if algo == "sac":
+        return SAC.load(model_path, device=device)
+    if algo == "ppo":
+        return PPO.load(model_path, device=device)
+    if algo == "td3":
+        return TD3.load(model_path, device=device)
+    raise ValueError(f"Unsupported algo: {algo}")
+
+
 def main():
+    args = parse_args()
     repo_root = _setup_paths()
     import gym_foo  # noqa: F401
     global globe
     import globe
 
-    model_path = os.path.join(repo_root, "sac_logs", "sac_final.zip")
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(
-            f"Model not found at {model_path}. Run train_sac.py first."
-        )
+    if not os.path.exists(args.model_path):
+        raise FileNotFoundError(f"Model not found at {args.model_path}")
+
+    output_dir = os.path.join(repo_root, args.output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
     env = gym.make("foo-v0", Train=False)
+    env.reset(seed=args.seed)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = SAC.load(model_path, device=device)
+    model = load_model(args.algo, args.model_path, device=device)
 
     pt_values = [10, 15, 20, 25, 30]
-    episodes_per_pt = 5
-
     avg_sinr = []
     avg_sumrate = []
 
     for pt_dbm in pt_values:
         sinr_runs = []
         sumrate_runs = []
-        for _ in range(episodes_per_pt):
+        for _ in range(args.episodes_per_pt):
             obs, _ = env.reset()
             terminated = False
             truncated = False
@@ -121,7 +143,7 @@ def main():
     plt.ylabel("Average SINR (dB)")
     plt.title("SINR vs Transmit Power")
     plt.grid(True)
-    sinr_path = os.path.join(repo_root, "SINR_vs_Pt.png")
+    sinr_path = os.path.join(output_dir, "SINR_vs_Pt.png")
     plt.savefig(sinr_path, dpi=300, bbox_inches="tight")
     plt.close()
 
@@ -131,7 +153,7 @@ def main():
     plt.ylabel("Average Sum-Rate")
     plt.title("Sum-Rate vs Transmit Power")
     plt.grid(True)
-    sumrate_path = os.path.join(repo_root, "SumRate_vs_Pt.png")
+    sumrate_path = os.path.join(output_dir, "SumRate_vs_Pt.png")
     plt.savefig(sumrate_path, dpi=300, bbox_inches="tight")
     plt.close()
 

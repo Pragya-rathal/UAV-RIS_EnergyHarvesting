@@ -36,13 +36,13 @@ Haoran Peng, and Li-Chun Wang, “Energy Harvesting Reconfigurable Intelligent S
   month = {Apr.}
 }
 ```
-## Requirements
-- Python: 3.6.13
-- Pytorch: 1.10.1
-- gym: 0.15.3
-- numpy: 1.19.2
+## Requirements (modernized)
+- Python: 3.9/3.10
+- Pytorch: 1.12+
+- gym: 0.26+
+- gymnasium (for Stable-Baselines3 v2)
+- numpy
 - matplotlib
-- pandas
 - Stable-Baselines3
 
 ## Usage
@@ -58,7 +58,7 @@ Haoran Peng, and Li-Chun Wang, “Energy Harvesting Reconfigurable Intelligent S
 - For DRL-based algorithms, the communication environment is impletemented in 'gym_foo/envs/foo_env.py'.
 - You can change the dataset and the scenario in 'gym_foo/envs/foo_env.py'.
 
-#### Training phase
+#### Training phase (legacy)
 1. For the TD3 and DDPG, please execute the TD3.py and DDPG.py to train the model, such as
 ```
 python TD3.py / python DDPG.py
@@ -75,7 +75,25 @@ If you want to conduct the training phase, the value of "Train" should be "True"
 2. For the exhaustive search, please execute the ExhaustiveSearch.py to reproduce the simulation results.
 3. For the SD3, please execute main.py to train a new model. 
 
-***Please use the version of 0.15.3 for Gym, otherwise there may have some issues in the training phase.***
+***Legacy scripts were built for Gym 0.15.3. For modern Gym/Stable-Baselines3, use the scripts below.***
+
+## Colab quick start (Gym 0.26+ / Stable-Baselines3)
+1. Install dependencies (uses `requirements.txt`):
+```
+!pip install -r requirements.txt
+```
+2. Train SAC:
+```
+!python train_sac.py --timesteps 200000 --model-name sac_colab
+```
+3. Train PPO:
+```
+!python train_ppo.py --timesteps 200000 --model-name ppo_colab
+```
+4. Evaluate and plot SINR/Sum-Rate:
+```
+!python eval_plots.py --algo sac --model-path sac_logs/sac_colab.zip --episodes-per-pt 5
+```
 
 #### Testing phase
 Please execute test.py to evaluate DRL models. Before you produce the testing results, please change the dataset and scenario in 'gym_foo/envs/foo_env.py'.

@@ -78,8 +78,12 @@ def main():
     global globe
     import globe
 
-    if not os.path.exists(args.model_path):
-        raise FileNotFoundError(f"Model not found at {args.model_path}")
+    model_path = args.model_path
+    if not os.path.isabs(model_path):
+        model_path = os.path.join(repo_root, model_path)
+
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model not found at {model_path}")
 
     output_dir = os.path.join(repo_root, args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
@@ -88,7 +92,7 @@ def main():
     env.reset(seed=args.seed)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = load_model(args.algo, args.model_path, device=device)
+    model = load_model(args.algo, model_path, device=device)
 
     pt_values = [10, 15, 20, 25, 30]
     avg_sinr = []

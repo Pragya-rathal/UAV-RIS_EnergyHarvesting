@@ -15,9 +15,9 @@ from stable_baselines3.common.callbacks import BaseCallback
 
 def _setup_paths():
     repo_root = os.path.dirname(os.path.abspath(__file__))
-    td3_dir = os.path.join(repo_root, "TD3-SingleUT-Time")
-    sys.path.insert(0, td3_dir)
-    os.chdir(td3_dir)
+    env_dir = os.path.join(repo_root, "TD3-SingleUT-Time")
+    sys.path.insert(0, env_dir)
+    os.chdir(env_dir)
     return repo_root
 
 
@@ -38,7 +38,7 @@ class ProgressPrinter(BaseCallback):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train SAC on UAV-RIS environment.")
+    parser = argparse.ArgumentParser(description="Train SAC on the UAV-RIS environment.")
     parser.add_argument("--timesteps", type=int, default=1_620_000)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--log-dir", type=str, default="sac_logs")

@@ -5,6 +5,7 @@ try:
     import gymnasium as gym
 except ImportError:  # pragma: no cover - fallback for gym-only installs
     import gym
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -13,9 +14,9 @@ from stable_baselines3 import SAC
 
 def _setup_paths():
     repo_root = os.path.dirname(os.path.abspath(__file__))
-    td3_dir = os.path.join(repo_root, "TD3-SingleUT-Time")
-    sys.path.insert(0, td3_dir)
-    os.chdir(td3_dir)
+    env_dir = os.path.join(repo_root, "TD3-SingleUT-Time")
+    sys.path.insert(0, env_dir)
+    os.chdir(env_dir)
     return repo_root
 
 
@@ -62,6 +63,7 @@ def main():
         )
 
     env = gym.make("foo-v0", Train=False)
+    env.reset(seed=0)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = SAC.load(model_path, device=device)

@@ -145,8 +145,9 @@ class FooEnv(gym.Env):
         t = globe.get_value('t')
         tau = action[0] # The length of the EH phase
         power_1 = mt.pow(10, ((action[1]-1)*30/10+3)) # power for UT 1
-        phase_levels = np.linspace(0, 2 * np.pi, 8, endpoint=False)
-        phase_indices = np.minimum((action[2:] * 8).astype(int), 7)
+        levels = 8
+        phase_levels = np.linspace(0, 2 * np.pi, levels, endpoint=False)
+        phase_indices = np.minimum((action[2:] * levels).astype(int), levels - 1)
         Theta_R = phase_levels[phase_indices]
 
         step = globe.get_value('step')

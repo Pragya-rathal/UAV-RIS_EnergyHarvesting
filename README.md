@@ -90,9 +90,30 @@ If you want to conduct the training phase, the value of "Train" should be "True"
 ```
 !python train_ppo.py --timesteps 200000 --model-name ppo_colab --device cuda --torch-threads 1 --torch-inter-op-threads 1
 ```
-4. Evaluate and plot SINR/Sum-Rate:
+4. Train TD3:
+```
+!python train_td3.py --timesteps 200000 --model-name td3_colab
+```
+5. Train DDPG:
+```
+!python train_ddpg.py --timesteps 200000 --model-name ddpg_colab
+```
+6. Save a trained model (fresh notebook cell):
+```
+from stable_baselines3 import SAC
+
+model = SAC.load("sac_logs/sac_colab.zip")
+model.save("sac_logs/sac_colab_saved")
+```
+7. Evaluate and plot SINR/Sum-Rate:
 ```
 !python eval_plots.py --algo sac --model-path sac_logs/sac_colab.zip --episodes-per-pt 5
+```
+8. For comparisons, run multiple evals (SAC/TD3/DDPG):
+```
+!python eval_plots.py --algo sac --model-path sac_logs/sac_colab.zip --episodes-per-pt 5
+!python eval_plots.py --algo td3 --model-path td3_logs/td3_colab.zip --episodes-per-pt 5
+!python eval_plots.py --algo ddpg --model-path ddpg_logs/ddpg_colab.zip --episodes-per-pt 5
 ```
 
 #### Testing phase

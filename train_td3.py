@@ -9,15 +9,15 @@ except ImportError:  # pragma: no cover - fallback for gym-only installs
     import gym
 
 import torch
-from stable_baselines3 import PPO
+from stable_baselines3 import TD3
 from stable_baselines3.common.callbacks import BaseCallback
 
 
 def _setup_paths():
     repo_root = os.path.dirname(os.path.abspath(__file__))
-    td3_dir = os.path.join(repo_root, "TD3-SingleUT-Time")
-    sys.path.insert(0, td3_dir)
-    os.chdir(td3_dir)
+    env_dir = os.path.join(repo_root, "TD3-SingleUT-Time")
+    sys.path.insert(0, env_dir)
+    os.chdir(env_dir)
     return repo_root
 
 
@@ -33,16 +33,16 @@ class ProgressPrinter(BaseCallback):
     def _on_step(self) -> bool:
         if self.n_calls % self.check_freq == 0:
             elapsed = time.time() - self.start_time
-            print(f"[PPO] Steps: {self.num_timesteps} | Elapsed: {elapsed/60:.1f} min")
+            print(f"[TD3] Steps: {self.num_timesteps} | Elapsed: {elapsed/60:.1f} min")
         return True
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train PPO on UAV-RIS environment.")
+    parser = argparse.ArgumentParser(description="Train TD3 on the UAV-RIS environment.")
     parser.add_argument("--timesteps", type=int, default=200_000)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--log-dir", type=str, default="ppo_logs")
-    parser.add_argument("--model-name", type=str, default="ppo_final")
+    parser.add_argument("--log-dir", type=str, default="td3_logs")
+    parser.add_argument("--model-name", type=str, default="td3_final")
     return parser.parse_args()
 
 
@@ -60,11 +60,11 @@ def main():
     env = gym.make("foo-v0", Train=True)
     env.reset(seed=args.seed)
 
-    model = PPO(
+    model = TD3(
         "MlpPolicy",
         env,
         learning_rate=3e-4,
-        n_steps=2048,
+        buffer_size=1_000_000,
         batch_size=256,
         verbose=1,
         tensorboard_log=os.path.join(log_dir, "tensorboard"),
@@ -72,13 +72,13 @@ def main():
         seed=args.seed,
     )
 
-    print("Starting PPO training...")
+    print("Starting TD3 training...")
     callback = ProgressPrinter(check_freq=10000)
     model.learn(total_timesteps=args.timesteps, log_interval=10, callback=callback)
 
     save_path = os.path.join(log_dir, args.model_name)
     model.save(save_path)
-    print(f"Saved PPO model to {save_path}.zip")
+    print(f"Saved TD3 model to {save_path}.zip")
 
 
 if __name__ == "__main__":

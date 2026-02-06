@@ -39,10 +39,29 @@ class ProgressPrinter(BaseCallback):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train PPO on UAV-RIS environment.")
-    parser.add_argument("--timesteps", type=int, default=1_620_000)
+    parser.add_argument("--timesteps", type=int, default=200_000)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--log-dir", type=str, default="ppo_logs")
     parser.add_argument("--model-name", type=str, default="ppo_final")
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        choices=("auto", "cuda", "cpu"),
+        help="Force training device (auto uses CUDA if available).",
+    )
+    parser.add_argument(
+        "--torch-threads",
+        type=int,
+        default=None,
+        help="Limit Torch CPU threads to reduce CPU contention.",
+    )
+    parser.add_argument(
+        "--torch-inter-op-threads",
+        type=int,
+        default=None,
+        help="Limit Torch inter-op CPU threads.",
+    )
     return parser.parse_args()
 
 
@@ -54,7 +73,15 @@ def main():
     log_dir = os.path.join(repo_root, args.log_dir)
     os.makedirs(log_dir, exist_ok=True)
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if args.torch_threads is not None:
+        torch.set_num_threads(args.torch_threads)
+    if args.torch_inter_op_threads is not None:
+        torch.set_num_interop_threads(args.torch_inter_op_threads)
+
+    if args.device == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    else:
+        device = args.device
     print(f"Using device: {device}")
 
     env = gym.make("foo-v0", Train=True)

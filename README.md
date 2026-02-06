@@ -84,11 +84,11 @@ If you want to conduct the training phase, the value of "Train" should be "True"
 ```
 2. Train SAC:
 ```
-!python train_sac.py --timesteps 200000 --model-name sac_colab
+!python train_sac.py --timesteps 200000 --model-name sac_colab --device cuda --torch-threads 1 --torch-inter-op-threads 1
 ```
 3. Train PPO:
 ```
-!python train_ppo.py --timesteps 200000 --model-name ppo_colab
+!python train_ppo.py --timesteps 200000 --model-name ppo_colab --device cuda --torch-threads 1 --torch-inter-op-threads 1
 ```
 4. Evaluate and plot SINR/Sum-Rate:
 ```

@@ -39,7 +39,7 @@ class ProgressPrinter(BaseCallback):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train PPO on UAV-RIS environment.")
-    parser.add_argument("--timesteps", type=int, default=1_620_000)
+    parser.add_argument("--timesteps", type=int, default=200_000)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--log-dir", type=str, default="ppo_logs")
     parser.add_argument("--model-name", type=str, default="ppo_final")

@@ -85,11 +85,11 @@ If you want to conduct the training phase, the value of "Train" should be "True"
 > All steps below are written as notebook cells (no local shell access required).
 2. Train SAC:
 ```
-!python train_sac.py --timesteps 200000 --model-name sac_colab
+!python train_sac.py --timesteps 200000 --model-name sac_colab --device cuda --torch-threads 1 --torch-inter-op-threads 1
 ```
 3. Train PPO:
 ```
-!python train_ppo.py --timesteps 200000 --model-name ppo_colab
+!python train_ppo.py --timesteps 200000 --model-name ppo_colab --device cuda --torch-threads 1 --torch-inter-op-threads 1
 ```
 4. Train TD3:
 ```
@@ -110,6 +110,8 @@ model.save("sac_logs/sac_colab_saved")
 7. Evaluate and plot SINR/Sum-Rate:
 ```
 !python eval_plots.py --algo sac --model-path sac_logs/sac_colab.zip --episodes-per-pt 5
+!python eval_plots.py --algo td3 --model-path td3_logs/td3_colab.zip --episodes-per-pt 5
+!python eval_plots.py --algo ddpg --model-path ddpg_logs/ddpg_colab.zip --episodes-per-pt 5
 ```
 8. For comparisons, run multiple evals (SAC/TD3/DDPG):
 ```

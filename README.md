@@ -82,6 +82,7 @@ If you want to conduct the training phase, the value of "Train" should be "True"
 ```
 !pip install -r requirements.txt
 ```
+> All steps below are written as notebook cells (no local shell access required).
 2. Train SAC:
 ```
 !python train_sac.py --timesteps 200000 --model-name sac_colab
@@ -90,9 +91,42 @@ If you want to conduct the training phase, the value of "Train" should be "True"
 ```
 !python train_ppo.py --timesteps 200000 --model-name ppo_colab
 ```
-4. Evaluate and plot SINR/Sum-Rate:
+4. Train TD3:
+```
+!python train_td3.py --timesteps 200000 --model-name td3_colab
+```
+5. Train DDPG:
+```
+!python train_ddpg.py --timesteps 200000 --model-name ddpg_colab
+```
+Each training script writes TensorBoard logs under `<algo>_logs/tensorboard` (e.g., `td3_logs/tensorboard`).
+6. Save a trained model (fresh notebook cell):
+```
+from stable_baselines3 import SAC
+
+model = SAC.load("sac_logs/sac_colab.zip")
+model.save("sac_logs/sac_colab_saved")
+```
+7. Evaluate and plot SINR/Sum-Rate:
 ```
 !python eval_plots.py --algo sac --model-path sac_logs/sac_colab.zip --episodes-per-pt 5
+```
+8. For comparisons, run multiple evals (SAC/TD3/DDPG):
+```
+!python eval_plots.py --algo sac --model-path sac_logs/sac_colab.zip --episodes-per-pt 5
+!python eval_plots.py --algo td3 --model-path td3_logs/td3_colab.zip --episodes-per-pt 5
+!python eval_plots.py --algo ddpg --model-path ddpg_logs/ddpg_colab.zip --episodes-per-pt 5
+```
+9. Generate combined comparison plots:
+```
+!python eval_compare.py --model sac=sac_logs/sac_colab.zip --model td3=td3_logs/td3_colab.zip --model ddpg=ddpg_logs/ddpg_colab.zip --episodes-per-pt 5
+```
+10. View the generated comparison images in a notebook cell:
+```
+from IPython.display import Image, display
+
+display(Image("eval_plots/SINR_vs_Pt_compare.png"))
+display(Image("eval_plots/SumRate_vs_Pt_compare.png"))
 ```
 
 #### Testing phase

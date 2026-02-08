@@ -130,6 +130,18 @@ from IPython.display import Image, display
 display(Image("eval_plots/SINR_vs_Pt_compare.png"))
 display(Image("eval_plots/SumRate_vs_Pt_compare.png"))
 ```
+11. Run the Rician K sweep (weak/medium/strong fading) for TD3/DDPG/SAC and save results:
+```
+!python rician_k_sweep.py --timesteps 200000 --episodes-per-pt 5 --seed 0 --device cuda
+```
+12. View sweep plots for a specific K (example K=1):
+```
+from IPython.display import Image, display
+
+display(Image("results/K_1/sinr_vs_pt.png"))
+display(Image("results/K_1/sumrate_vs_pt.png"))
+display(Image("results/K_1/training_reward.png"))
+```
 
 #### Testing phase
 Please execute test.py to evaluate DRL models. Before you produce the testing results, please change the dataset and scenario in 'gym_foo/envs/foo_env.py'.

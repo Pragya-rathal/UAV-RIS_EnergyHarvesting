@@ -41,9 +41,10 @@ def compute_sinr_sumrate(env, tau, power_1, theta_r, l_u, l_ap, ut_0):
     ut_link = np.linalg.multi_dot([g, coefficients, h_ru])
     signal_ut = np.sum(np.abs(ut_link * np.conjugate(ut_link))) * power_1
 
-    sinr_db = 10 * np.log10(signal_ut / awgn)
-    if sinr_db > 0:
-        sum_rate = bw * np.log2(1 + sinr_db) * (1 - tau)
+    sinr_linear = signal_ut / awgn
+    sinr_db = 10 * np.log10(sinr_linear)
+    if sinr_linear > 0:
+        sum_rate = bw * np.log2(1 + sinr_linear) * (1 - tau)
     else:
         sum_rate = 0.0
 

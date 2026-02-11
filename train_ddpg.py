@@ -9,7 +9,7 @@ except ImportError:  # pragma: no cover - fallback for gym-only installs
     import gym
 
 import torch
-from stable_baselines3 import SAC
+from stable_baselines3 import DDPG
 from stable_baselines3.common.callbacks import BaseCallback
 
 
@@ -33,16 +33,16 @@ class ProgressPrinter(BaseCallback):
     def _on_step(self) -> bool:
         if self.n_calls % self.check_freq == 0:
             elapsed = time.time() - self.start_time
-            print(f"[SAC] Steps: {self.num_timesteps} | Elapsed: {elapsed/60:.1f} min")
+            print(f"[DDPG] Steps: {self.num_timesteps} | Elapsed: {elapsed/60:.1f} min")
         return True
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train SAC on the UAV-RIS environment.")
+    parser = argparse.ArgumentParser(description="Train DDPG on the UAV-RIS environment.")
     parser.add_argument("--timesteps", type=int, default=200_000)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--log-dir", type=str, default="sac_logs")
-    parser.add_argument("--model-name", type=str, default="sac_final")
+    parser.add_argument("--log-dir", type=str, default="ddpg_logs")
+    parser.add_argument("--model-name", type=str, default="ddpg_final")
     return parser.parse_args()
 
 
@@ -60,7 +60,7 @@ def main():
     env = gym.make("foo-v0", Train=True)
     env.reset(seed=args.seed)
 
-    model = SAC(
+    model = DDPG(
         "MlpPolicy",
         env,
         learning_rate=3e-4,
@@ -71,13 +71,13 @@ def main():
         seed=args.seed,
     )
 
-    print("Starting SAC training...")
+    print("Starting DDPG training...")
     callback = ProgressPrinter(check_freq=10000)
     model.learn(total_timesteps=args.timesteps, log_interval=10, callback=callback)
 
     save_path = os.path.join(log_dir, args.model_name)
     model.save(save_path)
-    print(f"Saved SAC model to {save_path}.zip")
+    print(f"Saved DDPG model to {save_path}.zip")
 
 
 if __name__ == "__main__":

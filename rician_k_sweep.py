@@ -140,9 +140,28 @@ def parse_args():
         description="Sweep Rician K and compare TD3/DDPG/SAC under fixed settings."
     )
     parser.add_argument("--timesteps", type=int, default=200_000)
+    parser.add_argument(
+        "--chunk-timesteps",
+        type=int,
+        default=None,
+        help="Number of timesteps to train per chunk (defaults to --timesteps).",
+    )
+    parser.add_argument(
+        "--resume-path",
+        type=str,
+        default=None,
+        help="Path to a model checkpoint to resume from.",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--episodes-per-pt", type=int, default=5)
     parser.add_argument("--results-dir", type=str, default="results")
+    parser.add_argument(
+        "--algo",
+        type=str,
+        default="all",
+        choices=("all", "td3", "ddpg", "sac"),
+        help="Train a single algorithm or all (default: all).",
+    )
     parser.add_argument(
         "--device",
         type=str,
@@ -160,6 +179,7 @@ def main():
     global globe
     import globe
 
+    chunk_timesteps = args.chunk_timesteps or args.timesteps
     if args.device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
     else:
@@ -169,14 +189,17 @@ def main():
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    # Weak (0.5), medium (1), and strong (5) Rician K; all other parameters fixed for fairness.
-    K_values = [0.5, 1, 5]
+    # Weak (0.5) and medium (1) Rician K; baseline (5) excluded. All other parameters fixed for fairness.
+    K_values = [0.5, 1]
     pt_values = [10, 15, 20, 25, 30]
     algo_specs = {
         "TD3": TD3,
         "DDPG": DDPG,
         "SAC": SAC,
     }
+    if args.algo != "all":
+        algo_key = args.algo.upper()
+        algo_specs = {algo_key: algo_specs[algo_key]}
 
     for k_value in K_values:
         k_dir = os.path.join(repo_root, args.results_dir, f"K_{k_value}")
@@ -194,24 +217,58 @@ def main():
             env = Monitor(env)
             env.reset(seed=args.seed)
 
-            model = algo_cls(
-                "MlpPolicy",
-                env,
-                learning_rate=3e-4,
-                buffer_size=1_000_000,
-                batch_size=256,
-                verbose=1,
-                tensorboard_log=os.path.join(algo_dir, "tensorboard"),
-                device=device,
-                seed=args.seed,
-            )
+            resume_path = None
+            if args.resume_path:
+                resume_path = args.resume_path.format(
+                    algo=algo_name.lower(), k=k_value
+                )
+                if not os.path.exists(resume_path):
+                    raise FileNotFoundError(
+                        f"Resume checkpoint not found: {resume_path}"
+                    )
+
+            if resume_path:
+                print(f"Resuming from checkpoint: {resume_path}")
+                model = algo_cls.load(resume_path, env=env, device=device)
+            else:
+                print("Starting new training from scratch...")
+                model = algo_cls(
+                    "MlpPolicy",
+                    env,
+                    learning_rate=3e-4,
+                    buffer_size=1_000_000,
+                    batch_size=256,
+                    verbose=1,
+                    tensorboard_log=os.path.join(algo_dir, "tensorboard"),
+                    device=device,
+                    seed=args.seed,
+                )
 
             print(f"Starting {algo_name} training with K={k_value}...")
             reward_logger = EpisodeRewardLogger()
             callback = CallbackList(
                 [ProgressPrinter(algo_name, check_freq=10000), reward_logger]
             )
-            model.learn(total_timesteps=args.timesteps, log_interval=10, callback=callback)
+            model.learn(
+                total_timesteps=chunk_timesteps,
+                log_interval=10,
+                callback=callback,
+                reset_num_timesteps=False,
+            )
+
+            checkpoint_dir = os.path.join(repo_root, "checkpoints")
+            os.makedirs(checkpoint_dir, exist_ok=True)
+            current_total_steps = model.num_timesteps
+            checkpoint_path = os.path.join(
+                checkpoint_dir,
+                f"{algo_name.lower()}_k{k_value}_step{current_total_steps}.zip",
+            )
+            latest_path = os.path.join(
+                checkpoint_dir, f"{algo_name.lower()}_k{k_value}_latest.zip"
+            )
+            model.save(checkpoint_path)
+            model.save(latest_path)
+            print(f"Chunk completed. Saved to: {checkpoint_path}")
 
             save_path = os.path.join(algo_dir, f"{algo_name.lower()}_final")
             model.save(save_path)

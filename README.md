@@ -77,70 +77,44 @@ If you want to conduct the training phase, the value of "Train" should be "True"
 
 ***Legacy scripts were built for Gym 0.15.3. For modern Gym/Stable-Baselines3, use the scripts below.***
 
-## Colab quick start (Gym 0.26+ / Stable-Baselines3)
-1. Install dependencies (uses `requirements.txt`):
+## Colab / Kaggle quick start (Gym 0.26+ / Stable-Baselines3)
+1. Clone and enter repository:
+```
+!git clone https://github.com/Haoran-Peng/UAV-RIS_EnergyHarvesting.git
+%cd UAV-RIS_EnergyHarvesting
+```
+2. Install dependencies:
 ```
 !pip install -r requirements.txt
 ```
-> All steps below are written as notebook cells (no local shell access required).
-2. Train SAC:
+3. Train any algorithm (SAC / TD3 / DDPG, default `--timesteps 200000`):
 ```
-!python train_sac.py --timesteps 200000 --model-name sac_colab --device cuda --torch-threads 1 --torch-inter-op-threads 1
-```
-3. Train PPO:
-```
-!python train_ppo.py --timesteps 200000 --model-name ppo_colab --device cuda --torch-threads 1 --torch-inter-op-threads 1
-```
-4. Train TD3:
-```
+!python train_sac.py --timesteps 200000 --model-name sac_colab
 !python train_td3.py --timesteps 200000 --model-name td3_colab
-```
-5. Train DDPG:
-```
 !python train_ddpg.py --timesteps 200000 --model-name ddpg_colab
 ```
-Each training script writes TensorBoard logs under `<algo>_logs/tensorboard` (e.g., `td3_logs/tensorboard`).
-6. Save a trained model (fresh notebook cell):
+4. Run K-sweep evaluation (`K=0.5` and `K=5` by default):
 ```
-from stable_baselines3 import SAC
+# Evaluate one algorithm
+!python eval_sweep.py --algo sac --model-path sac_logs/sac_colab.zip
 
-model = SAC.load("sac_logs/sac_colab.zip")
-model.save("sac_logs/sac_colab_saved")
+# OR evaluate all three in one line (uses default model paths)
+!python eval_sweep.py --algo all
 ```
-7. Evaluate and plot SINR/Sum-Rate:
-```
-!python eval_plots.py --algo sac --model-path sac_logs/sac_colab.zip --episodes-per-pt 5
-!python eval_plots.py --algo td3 --model-path td3_logs/td3_colab.zip --episodes-per-pt 5
-!python eval_plots.py --algo ddpg --model-path ddpg_logs/ddpg_colab.zip --episodes-per-pt 5
-```
-8. For comparisons, run multiple evals (SAC/TD3/DDPG):
-```
-!python eval_plots.py --algo sac --model-path sac_logs/sac_colab.zip --episodes-per-pt 5
-!python eval_plots.py --algo td3 --model-path td3_logs/td3_colab.zip --episodes-per-pt 5
-!python eval_plots.py --algo ddpg --model-path ddpg_logs/ddpg_colab.zip --episodes-per-pt 5
-```
-9. Generate combined comparison plots:
-```
-!python eval_compare.py --model sac=sac_logs/sac_colab.zip --model td3=td3_logs/td3_colab.zip --model ddpg=ddpg_logs/ddpg_colab.zip --episodes-per-pt 5
-```
-10. View the generated comparison images in a notebook cell:
-```
-from IPython.display import Image, display
 
-display(Image("eval_plots/SINR_vs_Pt_compare.png"))
-display(Image("eval_plots/SumRate_vs_Pt_compare.png"))
-```
-11. Run the Rician K sweep (weak/medium/strong fading) for TD3/DDPG/SAC and save results:
-```
-!python rician_k_sweep.py --timesteps 200000 --episodes-per-pt 5 --seed 0 --device cuda
-```
-12. View sweep plots for a specific K (example K=1):
-```
-from IPython.display import Image, display
+Generated files are saved in repo root with algorithm-specific names, e.g.:
+- `SINR_vs_Pt_SAC_Kcompare.png`
+- `SINR_vs_Pt_TD3_Kcompare.png`
+- `SINR_vs_Pt_DDPG_Kcompare.png`
+- corresponding `SumRate_*` and combined `SINR_SumRate_*` plots.
 
-display(Image("results/K_1/sinr_vs_pt.png"))
-display(Image("results/K_1/sumrate_vs_pt.png"))
-display(Image("results/K_1/training_reward.png"))
+### Kaggle clone troubleshooting
+If you see `Could not resolve host: github.com`, Kaggle internet is disabled for the notebook.
+- Enable Internet in **Notebook settings** and rerun the clone command, or
+- Upload this repo as a Kaggle Dataset and copy/extract it locally, e.g.:
+```
+!cp -r /kaggle/input/<your-dataset-folder>/UAV-RIS_EnergyHarvesting /kaggle/working/
+%cd /kaggle/working/UAV-RIS_EnergyHarvesting
 ```
 
 #### Testing phase

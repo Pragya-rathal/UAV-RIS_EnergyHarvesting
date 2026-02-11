@@ -17,7 +17,7 @@ import random
 
 class FooEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
-    def __init__(self, LoadData = True, Train = False, multiUT = False, Trajectory_mode = 'Kmeans', MaxStep = 41, RicianK=5.0):
+    def __init__(self, LoadData = True, Train = False, multiUT = False, Trajectory_mode = 'Kmeans', MaxStep = 41):
         globe._init()
         #the initial location of UAV-RIS
         globe.set_value('L_U', [0, 0, 20]) #[x, y, z]

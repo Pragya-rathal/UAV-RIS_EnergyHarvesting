@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 
@@ -5,6 +6,7 @@ try:
     import gymnasium as gym
 except ImportError:  # pragma: no cover - fallback for gym-only installs
     import gym
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -13,9 +15,9 @@ from stable_baselines3 import SAC
 
 def _setup_paths():
     repo_root = os.path.dirname(os.path.abspath(__file__))
-    td3_dir = os.path.join(repo_root, "TD3-SingleUT-Time")
-    sys.path.insert(0, td3_dir)
-    os.chdir(td3_dir)
+    env_dir = os.path.join(repo_root, "TD3-SingleUT-Time")
+    sys.path.insert(0, env_dir)
+    os.chdir(env_dir)
     return repo_root
 
 
@@ -49,93 +51,157 @@ def compute_sinr_sumrate(env, tau, power_1, theta_r, l_u, l_ap, ut_0):
     return sinr_db, sum_rate
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Evaluate SAC over Pt and compare multiple Rician K factors in one run."
+    )
+    parser.add_argument(
+        "--model-path",
+        type=str,
+        default="sac_logs/sac_final.zip",
+        help="Path to trained SAC model (relative paths are resolved from repo root).",
+    )
+    parser.add_argument(
+        "--k-values",
+        type=float,
+        nargs="+",
+        default=[0.5, 5.0],
+        help="Rician K values to evaluate in a single run.",
+    )
+    parser.add_argument(
+        "--episodes-per-pt",
+        type=int,
+        default=5,
+        help="Evaluation episodes for each Pt value.",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     repo_root = _setup_paths()
     import gym_foo  # noqa: F401
     global globe
     import globe
 
-    model_path = os.path.join(repo_root, "sac_logs", "sac_final.zip")
+    model_path = args.model_path
+    if not os.path.isabs(model_path):
+        model_path = os.path.join(repo_root, model_path)
     if not os.path.exists(model_path):
         raise FileNotFoundError(
             f"Model not found at {model_path}. Run train_sac.py first."
         )
 
-    env = gym.make("foo-v0", Train=False)
-
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = SAC.load(model_path, device=device)
 
     pt_values = [10, 15, 20, 25, 30]
-    episodes_per_pt = 5
+    all_results = {}
 
-    avg_sinr = []
-    avg_sumrate = []
+    for k_value in args.k_values:
+        env = gym.make("foo-v0", Train=False, Rician_K=float(k_value))
+        env.reset(seed=0)
 
-    for pt_dbm in pt_values:
-        sinr_runs = []
-        sumrate_runs = []
-        for _ in range(episodes_per_pt):
-            obs, _ = env.reset()
-            terminated = False
-            truncated = False
-            episode_sinr = []
-            episode_sumrate = []
-            while not (terminated or truncated):
-                action, _states = model.predict(obs, deterministic=True)
-                action = np.array(action, dtype=np.float32)
-                action[1] = pt_dbm / 30.0
+        avg_sinr = []
+        avg_sumrate = []
 
-                step = globe.get_value("step")
-                t = globe.get_value("t")
-                if step < t - 1:
-                    l_u = globe.get_value("UAV_Trajectory")[step + 1]
-                    ut_0 = globe.get_value("UT_0")[step + 1]
-                else:
-                    l_u = globe.get_value("UAV_Trajectory")[step]
-                    ut_0 = globe.get_value("UT_0")[step]
-                l_ap = globe.get_value("L_AP")
+        for pt_dbm in pt_values:
+            sinr_runs = []
+            sumrate_runs = []
+            for _ in range(args.episodes_per_pt):
+                obs, _ = env.reset()
+                terminated = False
+                truncated = False
+                episode_sinr = []
+                episode_sumrate = []
+                while not (terminated or truncated):
+                    action, _states = model.predict(obs, deterministic=True)
+                    action = np.array(action, dtype=np.float32)
+                    action[1] = pt_dbm / 30.0
 
-                tau = action[0]
-                power_1 = 10 ** (((action[1] - 1) * 30 / 10) + 3)
-                theta_r = _quantize_theta(action[2:])
+                    step = globe.get_value("step")
+                    t = globe.get_value("t")
+                    if step < t - 1:
+                        l_u = globe.get_value("UAV_Trajectory")[step + 1]
+                        ut_0 = globe.get_value("UT_0")[step + 1]
+                    else:
+                        l_u = globe.get_value("UAV_Trajectory")[step]
+                        ut_0 = globe.get_value("UT_0")[step]
+                    l_ap = globe.get_value("L_AP")
 
-                sinr_db, sum_rate = compute_sinr_sumrate(
-                    env, tau, power_1, theta_r, l_u, l_ap, ut_0
-                )
-                episode_sinr.append(sinr_db)
-                episode_sumrate.append(sum_rate)
+                    tau = action[0]
+                    power_1 = 10 ** (((action[1] - 1) * 30 / 10) + 3)
+                    theta_r = _quantize_theta(action[2:])
 
-                obs, reward, terminated, truncated, info = env.step(action)
+                    sinr_db, sum_rate = compute_sinr_sumrate(
+                        env, tau, power_1, theta_r, l_u, l_ap, ut_0
+                    )
+                    episode_sinr.append(sinr_db)
+                    episode_sumrate.append(sum_rate)
 
-            sinr_runs.append(float(np.mean(episode_sinr)))
-            sumrate_runs.append(float(np.mean(episode_sumrate)))
+                    obs, reward, terminated, truncated, info = env.step(action)
 
-        avg_sinr.append(float(np.mean(sinr_runs)))
-        avg_sumrate.append(float(np.mean(sumrate_runs)))
-        print(f"Pt={pt_dbm} dBm | SINR={avg_sinr[-1]:.3f} | SumRate={avg_sumrate[-1]:.3f}")
+                sinr_runs.append(float(np.mean(episode_sinr)))
+                sumrate_runs.append(float(np.mean(episode_sumrate)))
+
+            avg_sinr.append(float(np.mean(sinr_runs)))
+            avg_sumrate.append(float(np.mean(sumrate_runs)))
+            print(
+                f"K={k_value:g}, Pt={pt_dbm} dBm | "
+                f"SINR={avg_sinr[-1]:.3f} | SumRate={avg_sumrate[-1]:.3f}"
+            )
+
+        all_results[float(k_value)] = {
+            "sinr": avg_sinr,
+            "sumrate": avg_sumrate,
+        }
 
     plt.figure()
-    plt.plot(pt_values, avg_sinr, marker="o")
+    for k_value, metrics in all_results.items():
+        plt.plot(pt_values, metrics["sinr"], marker="o", label=f"K={k_value:g}")
     plt.xlabel("Transmit Power Pt (dBm)")
     plt.ylabel("Average SINR (dB)")
     plt.title("SINR vs Transmit Power")
     plt.grid(True)
-    sinr_path = os.path.join(repo_root, "SINR_vs_Pt.png")
+    plt.legend()
+    sinr_path = os.path.join(repo_root, "SINR_vs_Pt_Kcompare.png")
     plt.savefig(sinr_path, dpi=300, bbox_inches="tight")
     plt.close()
 
     plt.figure()
-    plt.plot(pt_values, avg_sumrate, marker="o")
+    for k_value, metrics in all_results.items():
+        plt.plot(pt_values, metrics["sumrate"], marker="o", label=f"K={k_value:g}")
     plt.xlabel("Transmit Power Pt (dBm)")
     plt.ylabel("Average Sum-Rate")
     plt.title("Sum-Rate vs Transmit Power")
     plt.grid(True)
-    sumrate_path = os.path.join(repo_root, "SumRate_vs_Pt.png")
+    plt.legend()
+    sumrate_path = os.path.join(repo_root, "SumRate_vs_Pt_Kcompare.png")
     plt.savefig(sumrate_path, dpi=300, bbox_inches="tight")
     plt.close()
 
-    print(f"Saved plots to {sinr_path} and {sumrate_path}")
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5))
+    for k_value, metrics in all_results.items():
+        axes[0].plot(pt_values, metrics["sinr"], marker="o", label=f"K={k_value:g}")
+        axes[1].plot(pt_values, metrics["sumrate"], marker="o", label=f"K={k_value:g}")
+    axes[0].set_xlabel("Transmit Power Pt (dBm)")
+    axes[0].set_ylabel("Average SINR (dB)")
+    axes[0].set_title("SINR vs Pt")
+    axes[0].grid(True)
+    axes[0].legend()
+
+    axes[1].set_xlabel("Transmit Power Pt (dBm)")
+    axes[1].set_ylabel("Average Sum-Rate")
+    axes[1].set_title("Sum-Rate vs Pt")
+    axes[1].grid(True)
+    axes[1].legend()
+
+    fig.tight_layout()
+    combined_path = os.path.join(repo_root, "SINR_SumRate_vs_Pt_Kcompare.png")
+    fig.savefig(combined_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+
+    print(f"Saved plots to {sinr_path}, {sumrate_path}, and {combined_path}")
 
 
 if __name__ == "__main__":

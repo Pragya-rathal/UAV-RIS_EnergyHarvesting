@@ -1,6 +1,9 @@
-import gym
-from gym import error, spaces, utils
-from gym.utils import seeding
+try:
+    import gymnasium as gym
+    from gymnasium import spaces
+except ImportError:  # pragma: no cover - fallback for gym-only installs
+    import gym
+    from gym import spaces
 import globe
 import numpy as np
 import random as rd
@@ -13,7 +16,7 @@ import matplotlib
 import random
 
 class FooEnv(gym.Env):
-    metadata = {'render.modes': ['human']}
+    metadata = {"render_modes": ["human"]}
     def __init__(self, LoadData = True, Train = True, multiUT = False, Trajectory_mode = 'Fermat', MaxStep = 41):
         globe._init()
         #the initial location of UAV-RIS
@@ -127,18 +130,21 @@ class FooEnv(gym.Env):
         
         self.action_space = spaces.Box(0, 1, shape=(18, ), dtype=np.float32)
         self.observation_space = spaces.Box(0, 20, shape=(2, ), dtype=np.float32)
-        self._max_episode_steps = 41
+        self._max_episode_steps = int(MaxStep)
+        self.Train = Train
 
-    def step(self, action, steps):
+    def step(self, action, steps=None):
         t = globe.get_value('t')
         tau = action[0] # The length of the EH phase
         power_1 = mt.pow(10, ((action[1]-1)*30/10+3)) # power for UT 1
         Theta_R = action[2:] * 2 * np.pi
 
+        if steps is None:
+            steps = globe.get_value('step')
+            globe.set_value('step', int(steps + 1))
         reward, radio_state, received_energy = self.env_state(steps, tau, power_1, Theta_R)
-        done = False
-        if steps == t - 1:
-            done = True
+        terminated = steps == t - 1
+        truncated = False
    
         radio_state = radio_state/np.sum(radio_state)
 
@@ -148,9 +154,14 @@ class FooEnv(gym.Env):
         if (np.array(action) <= 1).all() == False:
             reward = 0
 
-        return radio_state, reward, done, received_energy
+        denom = received_energy if received_energy > 0 else 1e-9
+        info = {}
+        if not self.Train:
+            info = {"reward": float(reward), "received_energy": float(received_energy)}
+        return radio_state, reward / denom, terminated, truncated, info
 
-    def reset(self):
+    def reset(self, *, seed=None, options=None):
+        super().reset(seed=seed)
         globe.set_value('step', 0)
         globe.set_value('successCon', 0)
         
@@ -166,7 +177,7 @@ class FooEnv(gym.Env):
 
         radio_state = np.array([distance_AP_RIS, distance_RIS_UT_0])
         radio_state = radio_state/np.sum(radio_state)
-        return radio_state    
+        return radio_state, {}    
 
     def render(self, mode='human', close=False):
         pass

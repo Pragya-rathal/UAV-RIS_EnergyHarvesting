@@ -10,7 +10,7 @@ except ImportError:  # pragma: no cover - fallback for gym-only installs
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from stable_baselines3 import SAC, PPO, TD3
+from stable_baselines3 import DDPG, SAC, PPO, TD3
 
 
 def _setup_paths():
@@ -54,7 +54,9 @@ def compute_sinr_sumrate(env, tau, power_1, theta_r, l_u, l_ap, ut_0):
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate trained policy and plot SINR/Sum-Rate.")
     parser.add_argument("--model-path", type=str, required=True)
-    parser.add_argument("--algo", type=str, default="sac", choices=["sac", "ppo", "td3"])
+    parser.add_argument(
+        "--algo", type=str, default="sac", choices=["sac", "ppo", "td3", "ddpg"]
+    )
     parser.add_argument("--episodes-per-pt", type=int, default=5)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--output-dir", type=str, default="eval_plots")
@@ -68,6 +70,8 @@ def load_model(algo, model_path, device):
         return PPO.load(model_path, device=device)
     if algo == "td3":
         return TD3.load(model_path, device=device)
+    if algo == "ddpg":
+        return DDPG.load(model_path, device=device)
     raise ValueError(f"Unsupported algo: {algo}")
 
 

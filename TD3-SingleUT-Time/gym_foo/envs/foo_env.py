@@ -25,6 +25,8 @@ class FooEnv(gym.Env):
         multiUT=False,
         Trajectory_mode="Kmeans",
         MaxStep=41,
+        Rician_K=5.0,
+        RicianK=None,
     ):
         globe._init()
         #the initial location of UAV-RIS
@@ -77,6 +79,13 @@ class FooEnv(gym.Env):
 
         globe.set_value('kappa', mt.pow(10, (-30/10)))
         globe.set_value('hat_alpha', 2)
+
+        # Backward-compatibility: some older scripts/configs pass `RicianK` instead of `Rician_K`.
+        if RicianK is not None:
+            Rician_K = RicianK
+
+        globe.set_value('Rician_K', float(Rician_K))
+        globe.set_value('rician_k', float(Rician_K))
         globe.set_value('successCon', 0)
 
         if LoadData == True:
@@ -145,8 +154,9 @@ class FooEnv(gym.Env):
         t = globe.get_value('t')
         tau = action[0] # The length of the EH phase
         power_1 = mt.pow(10, ((action[1]-1)*30/10+3)) # power for UT 1
-        phase_levels = np.linspace(0, 2 * np.pi, 8, endpoint=False)
-        phase_indices = np.minimum((action[2:] * 8).astype(int), 7)
+        levels = 8
+        phase_levels = np.linspace(0, 2 * np.pi, levels, endpoint=False)
+        phase_indices = np.minimum((action[2:] * levels).astype(int), levels - 1)
         Theta_R = phase_levels[phase_indices]
 
         step = globe.get_value('step')
@@ -156,7 +166,7 @@ class FooEnv(gym.Env):
    
         globe.set_value('step', int(step+1))
 
-        radio_state = radio_state/np.sum(radio_state)
+        radio_state = (radio_state / np.sum(radio_state)).astype(np.float32)
 
         if (np.array(action) >= 0).all() == False:
             reward = 0
@@ -186,8 +196,8 @@ class FooEnv(gym.Env):
         distance_AP_RIS = mt.sqrt(mt.pow((L_U[0] - L_AP[0]), 2) + mt.pow((L_U[1] - L_AP[1]), 2) + mt.pow((L_U[2] - L_AP[2]), 2))
         distance_RIS_UT_0 = mt.sqrt(mt.pow((L_U[0] - UT_0[0]), 2) + mt.pow((L_U[1] - UT_0[1]), 2) + mt.pow((L_U[2] - UT_0[2]), 2))
 
-        radio_state = np.array([distance_AP_RIS, distance_RIS_UT_0])
-        radio_state = radio_state/np.sum(radio_state)
+        radio_state = np.array([distance_AP_RIS, distance_RIS_UT_0], dtype=np.float32)
+        radio_state = (radio_state / np.sum(radio_state)).astype(np.float32)
         return radio_state, {}
 
     def render(self, mode='human', close=False):
@@ -246,10 +256,13 @@ class FooEnv(gym.Env):
         h_ru = np.ones((RIS_L, 1))
         kappa = globe.get_value('kappa')
         hat_alpha = globe.get_value('hat_alpha')
+        rician_k = globe.get_value('Rician_K')
+        if rician_k is None:
+            rician_k = globe.get_value('rician_k')
         distance = mt.sqrt(mt.pow((L_U[0] - UT[0]), 2) + mt.pow((L_U[1] - UT[1]), 2) + mt.pow((L_U[2] - UT[2]), 2))
         PL = np.sqrt(kappa * mt.pow((distance/1), -hat_alpha))
 
-        h_ru = h_ru * np.sqrt(5/(1+5)) * PL + np.sqrt(1/(1+5)) * PL * self.Rayleigh_RU(L_U, UT, BS_Z, RIS_L)
+        h_ru = h_ru * np.sqrt(rician_k / (1 + rician_k)) * PL + np.sqrt(1 / (1 + rician_k)) * PL * self.Rayleigh_RU(L_U, UT, BS_Z, RIS_L)
 
         return h_ru
 
@@ -308,7 +321,7 @@ class FooEnv(gym.Env):
         distance_AP_RIS = mt.sqrt(mt.pow((L_U[0] - L_AP[0]), 2) + mt.pow((L_U[1] - L_AP[1]), 2) + mt.pow((L_U[2] - L_AP[2]), 2))
         distance_RIS_UT_0 = mt.sqrt(mt.pow((L_U[0] - UT_0[0]), 2) + mt.pow((L_U[1] - UT_0[1]), 2) + mt.pow((L_U[2] - UT_0[2]), 2))
 
-        radio_state = np.array([distance_AP_RIS, distance_RIS_UT_0])
+        radio_state = np.array([distance_AP_RIS, distance_RIS_UT_0], dtype=np.float32)
 
         return reward, radio_state, received_energy
 

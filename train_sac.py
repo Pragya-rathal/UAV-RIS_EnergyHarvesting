@@ -94,7 +94,6 @@ def main():
         buffer_size=1_000_000,
         batch_size=256,
         verbose=1,
-        tensorboard_log=os.path.join(log_dir, "tensorboard"),
         device=device,
         seed=args.seed,
     )

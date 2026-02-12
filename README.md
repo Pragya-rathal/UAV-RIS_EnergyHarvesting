@@ -116,6 +116,18 @@ If you see `Could not resolve host: github.com`, Kaggle internet is disabled for
 !cp -r /kaggle/input/<your-dataset-folder>/UAV-RIS_EnergyHarvesting /kaggle/working/
 %cd /kaggle/working/UAV-RIS_EnergyHarvesting
 ```
+11. Run the Rician K sweep (weak/medium/strong fading) for TD3/DDPG/SAC and save results:
+```
+!python rician_k_sweep.py --timesteps 200000 --episodes-per-pt 5 --seed 0 --device cuda
+```
+12. View sweep plots for a specific K (example K=1):
+```
+from IPython.display import Image, display
+
+display(Image("results/K_1/sinr_vs_pt.png"))
+display(Image("results/K_1/sumrate_vs_pt.png"))
+display(Image("results/K_1/training_reward.png"))
+```
 
 #### Testing phase
 Please execute test.py to evaluate DRL models. Before you produce the testing results, please change the dataset and scenario in 'gym_foo/envs/foo_env.py'.

@@ -25,7 +25,7 @@ class FooEnv(gym.Env):
         multiUT=False,
         Trajectory_mode="Kmeans",
         MaxStep=41,
-        Rician_K=5.0,
+        RicianK=5.0,
     ):
         globe._init()
         #the initial location of UAV-RIS
@@ -259,13 +259,11 @@ class FooEnv(gym.Env):
         h_ru = np.ones((RIS_L, 1))
         kappa = globe.get_value('kappa')
         hat_alpha = globe.get_value('hat_alpha')
-        rician_k = globe.get_value('Rician_K')
-        if rician_k is None:
-            rician_k = globe.get_value('rician_k')
+        rician_k = globe.get_value('rician_k')
         distance = mt.sqrt(mt.pow((L_U[0] - UT[0]), 2) + mt.pow((L_U[1] - UT[1]), 2) + mt.pow((L_U[2] - UT[2]), 2))
         PL = np.sqrt(kappa * mt.pow((distance/1), -hat_alpha))
 
-        h_ru = h_ru * np.sqrt(rician_k / (1 + rician_k)) * PL + np.sqrt(1 / (1 + rician_k)) * PL * self.Rayleigh_RU(L_U, UT, BS_Z, RIS_L)
+        h_ru = h_ru * np.sqrt(rician_k/(1+rician_k)) * PL + np.sqrt(1/(1+rician_k)) * PL * self.Rayleigh_RU(L_U, UT, BS_Z, RIS_L)
 
         return h_ru
 

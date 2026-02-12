@@ -78,7 +78,13 @@ class FooEnv(gym.Env):
 
         globe.set_value('kappa', mt.pow(10, (-30/10)))
         globe.set_value('hat_alpha', 2)
+
+        # Backward-compatibility: some older scripts/configs pass `RicianK` instead of `Rician_K`.
+        if RicianK is not None:
+            Rician_K = RicianK
+
         globe.set_value('Rician_K', float(Rician_K))
+        globe.set_value('rician_k', float(Rician_K))
         globe.set_value('successCon', 0)
         # Rician K controls LoS/NLoS strength: weak (0.5), medium (1), strong (5).
         globe.set_value('rician_k', float(RicianK))
@@ -161,7 +167,7 @@ class FooEnv(gym.Env):
    
         globe.set_value('step', int(step+1))
 
-        radio_state = radio_state/np.sum(radio_state)
+        radio_state = (radio_state / np.sum(radio_state)).astype(np.float32)
 
         if (np.array(action) >= 0).all() == False:
             reward = 0
@@ -191,8 +197,8 @@ class FooEnv(gym.Env):
         distance_AP_RIS = mt.sqrt(mt.pow((L_U[0] - L_AP[0]), 2) + mt.pow((L_U[1] - L_AP[1]), 2) + mt.pow((L_U[2] - L_AP[2]), 2))
         distance_RIS_UT_0 = mt.sqrt(mt.pow((L_U[0] - UT_0[0]), 2) + mt.pow((L_U[1] - UT_0[1]), 2) + mt.pow((L_U[2] - UT_0[2]), 2))
 
-        radio_state = np.array([distance_AP_RIS, distance_RIS_UT_0])
-        radio_state = radio_state/np.sum(radio_state)
+        radio_state = np.array([distance_AP_RIS, distance_RIS_UT_0], dtype=np.float32)
+        radio_state = (radio_state / np.sum(radio_state)).astype(np.float32)
         return radio_state, {}
 
     def render(self, mode='human', close=False):
@@ -254,6 +260,8 @@ class FooEnv(gym.Env):
         kappa = globe.get_value('kappa')
         hat_alpha = globe.get_value('hat_alpha')
         rician_k = globe.get_value('Rician_K')
+        if rician_k is None:
+            rician_k = globe.get_value('rician_k')
         distance = mt.sqrt(mt.pow((L_U[0] - UT[0]), 2) + mt.pow((L_U[1] - UT[1]), 2) + mt.pow((L_U[2] - UT[2]), 2))
         PL = np.sqrt(kappa * mt.pow((distance/1), -hat_alpha))
 
@@ -316,7 +324,7 @@ class FooEnv(gym.Env):
         distance_AP_RIS = mt.sqrt(mt.pow((L_U[0] - L_AP[0]), 2) + mt.pow((L_U[1] - L_AP[1]), 2) + mt.pow((L_U[2] - L_AP[2]), 2))
         distance_RIS_UT_0 = mt.sqrt(mt.pow((L_U[0] - UT_0[0]), 2) + mt.pow((L_U[1] - UT_0[1]), 2) + mt.pow((L_U[2] - UT_0[2]), 2))
 
-        radio_state = np.array([distance_AP_RIS, distance_RIS_UT_0])
+        radio_state = np.array([distance_AP_RIS, distance_RIS_UT_0], dtype=np.float32)
 
         return reward, radio_state, received_energy
 

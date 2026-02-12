@@ -101,52 +101,12 @@ If you want to conduct the training phase, the value of "Train" should be "True"
 # OR evaluate all three in one line (uses default model paths)
 !python eval_sweep.py --algo all
 ```
-5. Run everything end-to-end with one command:
-```
-# Full run (200k timesteps each algo)
-!bash run_all.sh
-
-# Fast smoke test
-!QUICK_TEST=1 bash run_all.sh
-```
 
 Generated files are saved in repo root with algorithm-specific names, e.g.:
 - `SINR_vs_Pt_SAC_Kcompare.png`
 - `SINR_vs_Pt_TD3_Kcompare.png`
 - `SINR_vs_Pt_DDPG_Kcompare.png`
 - corresponding `SumRate_*` and combined `SINR_SumRate_*` plots.
-
-### Kaggle notebook cells (copy/paste)
-If **Internet is ON** in Kaggle:
-```python
-!git clone https://github.com/Haoran-Peng/UAV-RIS_EnergyHarvesting.git
-%cd UAV-RIS_EnergyHarvesting
-!pip install -r requirements.txt
-
-# quick validation
-!SKIP_INSTALL=1 QUICK_TEST=1 bash run_all.sh
-
-# full experiment (200k timesteps for SAC/TD3/DDPG)
-!SKIP_INSTALL=1 bash run_all.sh
-```
-
-If **Internet is OFF** in Kaggle (repo uploaded as Dataset):
-```python
-!cp -r /kaggle/input/<your-dataset-folder>/UAV-RIS_EnergyHarvesting /kaggle/working/
-%cd /kaggle/working/UAV-RIS_EnergyHarvesting
-!pip install -r requirements.txt
-
-# quick validation
-!SKIP_INSTALL=1 QUICK_TEST=1 bash run_all.sh
-
-# full experiment
-!SKIP_INSTALL=1 bash run_all.sh
-```
-
-Expected output plot files in repo root:
-- `SINR_vs_Pt_SAC_Kcompare.png`, `SumRate_vs_Pt_SAC_Kcompare.png`
-- `SINR_vs_Pt_TD3_Kcompare.png`, `SumRate_vs_Pt_TD3_Kcompare.png`
-- `SINR_vs_Pt_DDPG_Kcompare.png`, `SumRate_vs_Pt_DDPG_Kcompare.png`
 
 ### Kaggle clone troubleshooting
 If you see `Could not resolve host: github.com`, Kaggle internet is disabled for the notebook.

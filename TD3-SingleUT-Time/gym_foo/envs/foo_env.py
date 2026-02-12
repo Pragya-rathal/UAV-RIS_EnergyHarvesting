@@ -26,7 +26,6 @@ class FooEnv(gym.Env):
         Trajectory_mode="Kmeans",
         MaxStep=41,
         Rician_K=5.0,
-        RicianK=None,
     ):
         globe._init()
         #the initial location of UAV-RIS
@@ -87,6 +86,8 @@ class FooEnv(gym.Env):
         globe.set_value('Rician_K', float(Rician_K))
         globe.set_value('rician_k', float(Rician_K))
         globe.set_value('successCon', 0)
+        # Rician K controls LoS/NLoS strength: weak (0.5), medium (1), strong (5).
+        globe.set_value('rician_k', float(RicianK))
 
         if LoadData == True:
             if Train == True:
@@ -220,8 +221,10 @@ class FooEnv(gym.Env):
         return g_BR
 
     def SmallFading_G(self, BS_Z, RIS_L):
-        SmallFading_G = 1/np.sqrt(2)*(np.random.normal(loc=0, scale=1, size=(BS_Z, RIS_L)) + 1j*np.random.normal(loc=0, scale=1, size=(BS_Z, RIS_L)))
-        return SmallFading_G
+        rician_k = globe.get_value('rician_k')
+        los = np.ones((BS_Z, RIS_L), dtype=np.complex128)
+        nlos = 1/np.sqrt(2)*(np.random.normal(loc=0, scale=1, size=(BS_Z, RIS_L)) + 1j*np.random.normal(loc=0, scale=1, size=(BS_Z, RIS_L)))
+        return np.sqrt(rician_k/(1 + rician_k)) * los + np.sqrt(1/(1 + rician_k)) * nlos
 
     def EH(self, tau, power_1, Theta_R, L_U, L_AP):
         eta = globe.get_value('eta')

@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import gym
 import gym_foo
 
+EPS = 1e-8
+
 def plot(frame_idx, rewards):
     plt.figure()
     plt.title('Step %s. reward: %s' % (frame_idx, rewards[-1]))
@@ -16,7 +18,8 @@ maxStep = 41
 
 globe._init()
 env = gym.make('foo-v0')
-env.seed(100)
+if hasattr(env, "seed"):
+	env.seed(100)
 
 total_record = []
 def main():
@@ -32,8 +35,9 @@ def main():
 		for i in range(int(1e6)):
 			action = np.random.rand(36)
 			next_state, reward, done, received_energy = env.step(action, steps)
-			if reward/received_energy > max_reward:
-				max_reward = reward/received_energy
+			reward_ratio = reward / max(float(received_energy), EPS)
+			if reward_ratio > max_reward:
+				max_reward = reward_ratio
 				energy_per_step = received_energy
 				harvest_energy = reward
 
@@ -48,7 +52,7 @@ def main():
 	total_record.append(np.sum(rewards))
 
 	print("rewards："+str(total_record[0]))
-	print("harvested rewards："+str(np.sum(harvested_energy_per_step)/np.sum(received_energy_per_step)))
+	print("harvested rewards："+str(np.sum(harvested_energy_per_step)/max(float(np.sum(received_energy_per_step)), EPS)))
 
 	np.savetxt("Exhaustive_Result/total_rewards.csv", total_record, delimiter=',')
 

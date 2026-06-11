@@ -15,6 +15,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib
 import random
 
+EPS = 1e-8
+
 class FooEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
     def __init__(self, LoadData = True, Train = True, multiUT = True, Trajectory_mode = 'Fermat', MaxStep = 41):
@@ -149,7 +151,7 @@ class FooEnv(gym.Env):
         terminated = steps == t - 1
         truncated = False
    
-        radio_state = radio_state/np.sum(radio_state)
+        radio_state = (radio_state / max(float(np.sum(radio_state)), EPS)).astype(np.float32)
 
         if (np.array(action) >= 0).all() == False:
             reward = 0
@@ -157,7 +159,7 @@ class FooEnv(gym.Env):
         if (np.array(action) <= 1).all() == False:
             reward = 0
 
-        denom = received_energy if received_energy > 0 else 1e-9
+        denom = max(float(received_energy), EPS)
         info = {}
         if not self.Train:
             info = {"reward": float(reward), "received_energy": float(received_energy)}
@@ -183,7 +185,7 @@ class FooEnv(gym.Env):
         distance_RIS_UT_2 = mt.sqrt(mt.pow((L_U[0] - UT_2[0]), 2) + mt.pow((L_U[1] - UT_2[1]), 2) + mt.pow((L_U[2] - UT_2[2]), 2))
 
         radio_state = np.array([distance_AP_RIS, distance_RIS_UT_0, distance_RIS_UT_1, distance_RIS_UT_2])
-        radio_state = radio_state/np.sum(radio_state)
+        radio_state = (radio_state / max(float(np.sum(radio_state)), EPS)).astype(np.float32)
         return radio_state, {}    
 
     def render(self, mode='human', close=False):
@@ -253,6 +255,7 @@ class FooEnv(gym.Env):
         kappa = globe.get_value('kappa')
         hat_alpha = globe.get_value('hat_alpha')
         distance = mt.sqrt(mt.pow((L_U[0] - UT[0]), 2) + mt.pow((L_U[1] - UT[1]), 2) + mt.pow((L_U[2] - UT[2]), 2))
+        distance = max(float(distance), EPS)
         PL = np.sqrt(kappa * mt.pow((distance/1), -hat_alpha))
 
         h_ru = h_ru * np.sqrt(5/(1+5)) * PL + np.sqrt(1/(1+5)) * PL * self.Rayleigh_RU(L_U, UT, BS_Z, RIS_L)

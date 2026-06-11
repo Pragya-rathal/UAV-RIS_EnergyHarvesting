@@ -10,18 +10,39 @@ import random
 import SD3
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
+EPS = 1e-8
+
+
+def _reset_env(env, seed=None):
+	if seed is not None and hasattr(env, "seed"):
+		env.seed(seed)
+	try:
+		result = env.reset(seed=seed)
+	except TypeError:
+		result = env.reset()
+	return result[0] if isinstance(result, tuple) else result
+
+
+def _step_env(env, action):
+	result = env.step(action)
+	if len(result) == 5:
+		next_state, reward, terminated, truncated, info = result
+		done = terminated or truncated
+		received_energy = info.get("received_energy", reward) if isinstance(info, dict) else reward
+		return next_state, reward, done, received_energy
+	return result
+
 def eval_policy(policy, env_name, seed, eval_episodes=10, eval_cnt=None):
 	eval_env = gym.make(env_name)
-	eval_env.seed(seed + 100)
 
 	avg_reward = 0.
 	avg_Harvested_Energy = 0.
 	for episode_idx in range(eval_episodes):
-		state, done = eval_env.reset(), False
+		state, done = _reset_env(eval_env, seed + 100), False
 		while not done:
 			action = policy.select_action(np.array(state))
 			print(action)
-			next_state, reward, done, received_energy = eval_env.step(action)
+			next_state, reward, done, received_energy = _step_env(eval_env, action)
 
 			avg_reward += reward
 			avg_Harvested_Energy += received_energy
@@ -31,7 +52,7 @@ def eval_policy(policy, env_name, seed, eval_episodes=10, eval_cnt=None):
 	avg_Harvested_Energy /= eval_episodes
 
 	print("[{}] Evaluation over {} episodes, Avg_Rewards: {} Avg_Harvest_Energy: {}".format(eval_cnt, eval_episodes, avg_reward, avg_reward/avg_Harvested_Energy))
-	
+
 	return avg_reward, avg_reward/avg_Harvested_Energy
 
 
@@ -46,11 +67,11 @@ if __name__ == "__main__":
 	parser.add_argument("--steps", default=328000, type=int, help='Maximum number of steps')
 
 	parser.add_argument("--discount", default=0.99, help='Discount factor')
-	parser.add_argument("--tau", default=0.005, help='Target network update rate')                    
-	
-	parser.add_argument("--actor-lr", default=1e-5, type=float)     
-	parser.add_argument("--critic-lr", default=1e-5, type=float)    
-	parser.add_argument("--hidden-sizes", default='400,300', type=str)  
+	parser.add_argument("--tau", default=0.005, help='Target network update rate')
+
+	parser.add_argument("--actor-lr", default=1e-5, type=float)
+	parser.add_argument("--critic-lr", default=1e-5, type=float)
+	parser.add_argument("--hidden-sizes", default='400,300', type=str)
 	parser.add_argument("--batch-size", default=pow(2, 10), type=int)      # Batch size for both actor and critic
 
 	parser.add_argument("--save-model", action="store_true", default=True)        # Save model and optimizer parameters
@@ -65,7 +86,7 @@ if __name__ == "__main__":
 	parser.add_argument('--beta', default='best', help='The parameter beta in softmax')
 	parser.add_argument('--num-noise-samples', type=int, default=100, help='The number of noises to sample for each next_action')
 	parser.add_argument('--imps', type=int, default=0, help='Whether to use importance sampling for gaussian noise when calculating softmax values')
-	
+
 	args = parser.parse_args()
 
 	print("---------------------------------------")
@@ -80,7 +101,8 @@ if __name__ == "__main__":
 
 	env = gym.make(args.env)
 
-	env.seed(args.seed)
+	if hasattr(env, "seed"):
+		env.seed(args.seed)
 	torch.manual_seed(args.seed)
 	np.random.seed(args.seed)
 	torch.backends.cudnn.deterministic = True
@@ -98,6 +120,7 @@ if __name__ == "__main__":
 		"state_dim": state_dim,
 		"action_dim": action_dim,
 		"max_action": max_action,
+		"min_action": min_action,
 		"discount": args.discount,
 		"tau": args.tau,
 		"hidden_sizes": [int(hs) for hs in args.hidden_sizes.split(',')],
@@ -125,13 +148,13 @@ if __name__ == "__main__":
 	replay_buffer = utils.ReplayBuffer(state_dim, action_dim, device)
 
 	eval_cnt = 0
-	
+
 	eval_return, avg_Harvested_Energy = eval_policy(policy, args.env, args.seed, eval_cnt=eval_cnt)
 	eval_cnt += 1
 	Rewards.append(eval_return)
 	Harvest_Energy.append(avg_Harvested_Energy)
 
-	state, done = env.reset(), False
+	state, done = _reset_env(env, args.seed), False
 	episode_reward = 0
 	episode_received_energy = 0
 	episode_timesteps = 0
@@ -146,10 +169,10 @@ if __name__ == "__main__":
 		else:
 			action = policy.select_action(np.array(state)) + decay * np.random.normal(0, 0.5, size=action_dim)
 
-		next_state, reward, done, received_energy = env.step(action)
+		next_state, reward, done, received_energy = _step_env(env, action)
 		done_bool = float(done) if episode_timesteps < env._max_episode_steps else 0
 
-		replay_buffer.add(state, action, next_state, reward/received_energy, done_bool)
+		replay_buffer.add(state, action, next_state, reward/max(received_energy, EPS), done_bool)
 
 		state = next_state
 		episode_reward += reward
@@ -157,15 +180,15 @@ if __name__ == "__main__":
 
 		if t >= args.start_steps:
 			policy.train(replay_buffer, args.batch_size)
-		
-		if done: 
+
+		if done:
 			print("Total T: {} Episode Num: {} Episode T: {} Reward: {} Harvest_Energy: {}".format(t+1, episode_num+1, episode_timesteps, episode_reward, episode_reward/episode_received_energy))
-			
-			state, done = env.reset(), False
+
+			state, done = _reset_env(env, args.seed), False
 			episode_reward = 0
 			episode_received_energy = 0
 			episode_timesteps = 0
-			episode_num += 1 
+			episode_num += 1
 			decay = decay * 0.997
 
 		if (t + 1) % args.eval_freq == 0:
@@ -173,7 +196,7 @@ if __name__ == "__main__":
 			eval_cnt += 1
 			Rewards.append(eval_return)
 			Harvest_Energy.append(avg_Harvested_Energy)
-			state, done = env.reset(), False
+			state, done = _reset_env(env, args.seed), False
 
 			if args.save_model:
 				policy.save('{}/models/model'.format(outdir))

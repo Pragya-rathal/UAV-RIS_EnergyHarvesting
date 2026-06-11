@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+EPS = 1e-8
+
 
 class Actor(nn.Module):
 	def __init__(self, state_dim, action_dim, max_action, hidden_sizes=[400, 300]):
@@ -53,6 +55,7 @@ class SD3(object):
 		action_dim,
 		max_action,
 		device,
+		min_action=0.0,
 		discount=0.99,
 		tau=0.005,
 		policy_noise=0.2,
@@ -83,6 +86,7 @@ class SD3(object):
 		self.critic2_optimizer = torch.optim.Adam(self.critic2.parameters(), lr=critic_lr)
 
 		self.max_action = max_action
+		self.min_action = min_action
 		self.discount = discount
 		self.tau = tau
 		self.policy_noise = policy_noise
@@ -102,8 +106,9 @@ class SD3(object):
 		q2 = self.critic2(state, action2)
 
 		action = action1 if q1 >= q2 else action2
+		action = action.clamp(self.min_action, self.max_action)
 
-		return action.cpu().data.numpy().flatten()
+		return action.detach().cpu().numpy().flatten()
 
 
 	def train(self, replay_buffer, batch_size=100):
@@ -121,20 +126,21 @@ class SD3(object):
 		denominators = e_beta_normQ
 
 		if self.with_importance_sampling:
-			numerators /= noise_pdf
-			denominators /= noise_pdf
+			numerators /= noise_pdf.clamp_min(EPS)
+			denominators /= noise_pdf.clamp_min(EPS)
 
 		sum_numerators = torch.sum(numerators, 1)
 		sum_denominators = torch.sum(denominators, 1)
 
-		softmax_q_vals = sum_numerators / sum_denominators
+		softmax_q_vals = sum_numerators / sum_denominators.clamp_min(EPS)
 
 		softmax_q_vals = torch.unsqueeze(softmax_q_vals, 1)
 		return softmax_q_vals
 
 
 	def calc_pdf(self, samples, mu=0):
-		pdfs = 1/(self.policy_noise * np.sqrt(2 * np.pi)) * torch.exp( - (samples - mu)**2 / (2 * self.policy_noise**2) )
+		policy_noise = max(float(self.policy_noise), EPS)
+		pdfs = 1/(policy_noise * np.sqrt(2 * np.pi)) * torch.exp( - (samples - mu)**2 / (2 * policy_noise**2) )
 		pdf = torch.prod(pdfs, dim=2)
 		return pdf
 
@@ -160,7 +166,7 @@ class SD3(object):
 
 			next_action = torch.unsqueeze(next_action, 1)
 
-			next_action = (next_action + noise).clamp(-self.max_action, self.max_action)
+			next_action = (next_action + noise).clamp(self.min_action, self.max_action)
 
 			next_state = torch.unsqueeze(next_state, 1)
 			next_state = next_state.repeat((1, self.num_noise_samples, 1))

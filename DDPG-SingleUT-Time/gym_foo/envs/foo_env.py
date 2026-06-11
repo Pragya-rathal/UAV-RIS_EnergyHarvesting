@@ -15,6 +15,8 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib
 import random
 
+EPS = 1e-8
+
 class FooEnv(gym.Env):
     metadata = {"render_modes": ["human"]}
     def __init__(self, LoadData = True, Train = False, multiUT = False, Trajectory_mode = 'Kmeans', MaxStep = 41, RicianK=5.0):
@@ -148,7 +150,7 @@ class FooEnv(gym.Env):
    
         globe.set_value('step', int(step+1))
 
-        radio_state = radio_state/np.sum(radio_state)
+        radio_state = (radio_state / max(float(np.sum(radio_state)), EPS)).astype(np.float32)
 
         if (np.array(action) >= 0).all() == False:
             reward = 0
@@ -156,7 +158,7 @@ class FooEnv(gym.Env):
         if (np.array(action) <= 1).all() == False:
             reward = 0
 
-        denom = received_energy if received_energy > 0 else 1e-9
+        denom = max(float(received_energy), EPS)
         info = {}
         if not self.Train:
             info = {"reward": float(reward), "received_energy": float(received_energy)}
@@ -178,7 +180,7 @@ class FooEnv(gym.Env):
         distance_RIS_UT_0 = mt.sqrt(mt.pow((L_U[0] - UT_0[0]), 2) + mt.pow((L_U[1] - UT_0[1]), 2) + mt.pow((L_U[2] - UT_0[2]), 2))
 
         radio_state = np.array([distance_AP_RIS, distance_RIS_UT_0])
-        radio_state = radio_state/np.sum(radio_state)
+        radio_state = (radio_state / max(float(np.sum(radio_state)), EPS)).astype(np.float32)
         return radio_state, {}    
 
     def render(self, mode='human', close=False):
@@ -241,6 +243,7 @@ class FooEnv(gym.Env):
         hat_alpha = globe.get_value('hat_alpha')
         rician_k = globe.get_value('rician_k')
         distance = mt.sqrt(mt.pow((L_U[0] - UT[0]), 2) + mt.pow((L_U[1] - UT[1]), 2) + mt.pow((L_U[2] - UT[2]), 2))
+        distance = max(float(distance), EPS)
         PL = np.sqrt(kappa * mt.pow((distance/1), -hat_alpha))
 
         h_ru = h_ru * np.sqrt(rician_k/(1+rician_k)) * PL + np.sqrt(1/(1+rician_k)) * PL * self.Rayleigh_RU(L_U, UT, BS_Z, RIS_L)
@@ -268,7 +271,7 @@ class FooEnv(gym.Env):
         UT_link_1 = 1*np.linalg.multi_dot([G, coefficients, h_ru])
         signal_UT_1 = np.sum(np.abs(UT_link_1 * np.conjugate(UT_link_1))) * power_1
 
-        SINR_1 = 10 * mt.log((signal_UT_1/(AWGN)), 10)
+        SINR_1 = 10 * mt.log(max(float(signal_UT_1) / max(float(AWGN), EPS), EPS), 10)
 
         if SINR_1 > 0:
             Aver_Throughput_1 = BW * mt.log((1 + SINR_1), 2) * (1 - tau)

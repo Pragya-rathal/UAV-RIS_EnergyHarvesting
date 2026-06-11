@@ -12,8 +12,14 @@ except ImportError:  # pragma: no cover - fallback for gym-only installs
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+EPS = 1e-8
+
 from stable_baselines3 import DDPG, SAC, TD3
+EPS = 1e-8
+
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
+EPS = 1e-8
+
 from stable_baselines3.common.monitor import Monitor
 
 
@@ -78,10 +84,10 @@ def compute_sinr_sumrate(env, tau, power_1, theta_r, l_u, l_ap, ut_0):
     ut_link = np.linalg.multi_dot([g, coefficients, h_ru])
     signal_ut = np.sum(np.abs(ut_link * np.conjugate(ut_link))) * power_1
 
-    sinr_linear = signal_ut / awgn
-    sinr_db = 10 * np.log10(sinr_linear)
+    sinr_linear = signal_ut / max(float(awgn), EPS)
+    sinr_db = 10 * np.log10(max(float(sinr_linear), EPS))
     if sinr_linear > 0:
-        sum_rate = bw * np.log2(1 + sinr_linear) * (1 - tau)
+        sum_rate = bw * np.log2(1 + max(float(sinr_linear), EPS)) * (1 - tau)
     else:
         sum_rate = 0.0
 

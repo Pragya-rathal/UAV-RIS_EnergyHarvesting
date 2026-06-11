@@ -10,29 +10,50 @@ import random
 import SD3
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
+EPS = 1e-8
+
+
+def _reset_env(env, seed=None):
+	if seed is not None and hasattr(env, "seed"):
+		env.seed(seed)
+	try:
+		result = env.reset(seed=seed)
+	except TypeError:
+		result = env.reset()
+	return result[0] if isinstance(result, tuple) else result
+
+
+def _step_env(env, action):
+	result = env.step(action)
+	if len(result) == 5:
+		next_state, reward, terminated, truncated, info = result
+		done = terminated or truncated
+		received_energy = info.get("received_energy", reward) if isinstance(info, dict) else reward
+		return next_state, reward, done, received_energy
+	return result
+
 def eval_policy(policy, env_name, seed, eval_episodes=1, eval_cnt=None):
 	eval_env = gym.make(env_name)
-	eval_env.seed(seed + 100)
 
 	Rewards = []
 	Received_Energy_List = []
 	Harvested_Energy_ratio_List = []
 	for episode_idx in range(eval_episodes):
-		state, done = eval_env.reset(), False
+		state, done = _reset_env(eval_env, seed + 100), False
 		while not done:
 			action = policy.select_action(np.array(state))
 			print(action)
-			next_state, reward, done, Received_Energy = eval_env.step(action)
+			next_state, reward, done, Received_Energy = _step_env(eval_env, action)
 
 			Rewards.append(reward)
 			Received_Energy_List.append(Received_Energy)
-			Harvested_Energy_ratio_List.append(reward/Received_Energy)
+			Harvested_Energy_ratio_List.append(reward/max(Received_Energy, EPS))
 
 			state = next_state
 
 
-	print("[{}] Evaluation over {} episodes, Rewards: {} Harvest_Energy: {}".format(eval_cnt, eval_episodes, np.sum(Rewards), np.sum(Rewards)/np.sum(Received_Energy_List)))
-	
+	print("[{}] Evaluation over {} episodes, Rewards: {} Harvest_Energy: {}".format(eval_cnt, eval_episodes, np.sum(Rewards), np.sum(Rewards)/max(float(np.sum(Received_Energy_List)), EPS)))
+
 	return Rewards, Received_Energy_List, Harvested_Energy_ratio_List
 
 
@@ -47,11 +68,11 @@ if __name__ == "__main__":
 	parser.add_argument("--steps", default=1458000, type=int, help='Maximum number of steps')
 
 	parser.add_argument("--discount", default=0.99, help='Discount factor')
-	parser.add_argument("--tau", default=0.005, help='Target network update rate')                    
-	
-	parser.add_argument("--actor-lr", default=1e-5, type=float)     
-	parser.add_argument("--critic-lr", default=1e-5, type=float)    
-	parser.add_argument("--hidden-sizes", default='400,300', type=str)  
+	parser.add_argument("--tau", default=0.005, help='Target network update rate')
+
+	parser.add_argument("--actor-lr", default=1e-5, type=float)
+	parser.add_argument("--critic-lr", default=1e-5, type=float)
+	parser.add_argument("--hidden-sizes", default='400,300', type=str)
 	parser.add_argument("--batch-size", default=pow(2, 10), type=int)      # Batch size for both actor and critic
 
 	parser.add_argument("--save-model", action="store_true", default=True)        # Save model and optimizer parameters
@@ -66,7 +87,7 @@ if __name__ == "__main__":
 	parser.add_argument('--beta', default='best', help='The parameter beta in softmax')
 	parser.add_argument('--num-noise-samples', type=int, default=100, help='The number of noises to sample for each next_action')
 	parser.add_argument('--imps', type=int, default=0, help='Whether to use importance sampling for gaussian noise when calculating softmax values')
-	
+
 	args = parser.parse_args()
 
 	print("---------------------------------------")
@@ -81,7 +102,8 @@ if __name__ == "__main__":
 
 	env = gym.make(args.env)
 
-	env.seed(args.seed)
+	if hasattr(env, "seed"):
+		env.seed(args.seed)
 	torch.manual_seed(args.seed)
 	np.random.seed(args.seed)
 	torch.backends.cudnn.deterministic = True
@@ -99,6 +121,7 @@ if __name__ == "__main__":
 		"state_dim": state_dim,
 		"action_dim": action_dim,
 		"max_action": max_action,
+		"min_action": min_action,
 		"discount": args.discount,
 		"tau": args.tau,
 		"hidden_sizes": [int(hs) for hs in args.hidden_sizes.split(',')],
@@ -125,12 +148,12 @@ if __name__ == "__main__":
 
 
 	eval_cnt = 0
-	
+
 	eval_return, Received_Energy, eval_Harvested_Energy = eval_policy(policy, args.env, args.seed, eval_episodes=1, eval_cnt=eval_cnt)
 	eval_cnt += 1
 
-	state, done = env.reset(), False
+	state, done = _reset_env(env, args.seed), False
 
 
 	np.savetxt("Evaluated_Harvested_Energy.csv", eval_Harvested_Energy, delimiter=',')
-	np.savetxt("Total_HarvestEnergy.txt", [np.sum(eval_return)/np.sum(Received_Energy)])
+	np.savetxt("Total_HarvestEnergy.txt", [np.sum(eval_return)/max(float(np.sum(Received_Energy)), EPS)])
